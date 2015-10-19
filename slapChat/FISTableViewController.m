@@ -10,9 +10,9 @@
 #import "FISMessage.h"
 #import "FISDataStore.h"
 
-@interface FISTableViewController ()
-@property (strong, nonatomic) NSArray *messages;
+@interface FISTableViewController () <NSFetchedResultsControllerDelegate>
 @property (strong, nonatomic) FISDataStore *store;
+@property (strong, nonatomic) NSFetchedResultsController *resultsController;
 @end
 
 @implementation FISTableViewController
@@ -22,37 +22,53 @@
     [super viewDidLoad];
 
     self.store = [FISDataStore sharedDataStore];
-}
-
-- (void)viewWillAppear:(BOOL)animated
-{
-    [super viewWillAppear:animated];
-
-    [self.store fetchData];
-    self.messages = self.store.messages;
-    [self.tableView reloadData];
+    [self setupResultsController];
+    [self.resultsController performFetch:nil];
 }
 
 #pragma mark - Table view data source
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return [self.messages count];
+    return [self.resultsController.fetchedObjects count];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"basiccell" forIndexPath:indexPath];
     
-    FISMessage *eachMessage = self.messages[indexPath.row];
+    FISMessage *eachMessage = self.resultsController.fetchedObjects[indexPath.row];
     cell.textLabel.text = eachMessage.content;
     
     return cell;
 }
 
+#pragma mark - Add Button
+
+- (IBAction)addButtonTapped:(id)sender {
+    FISMessage *newMessage = [NSEntityDescription insertNewObjectForEntityForName:@"FISMessage" inManagedObjectContext:self.store.managedObjectContext];
+    
+    newMessage.createdAt = [NSDate date];
+    newMessage.content = [NSString stringWithFormat:@"%@", newMessage.createdAt];
+    
+    [self.store saveContext];
+}
+#pragma mark - Results Controller Setup
+
+-(void) setupResultsController
+{
+    NSFetchRequest *messagesRequest = [NSFetchRequest fetchRequestWithEntityName:@"FISMessage"];
+    messagesRequest.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"createdAt" ascending:YES]];
+    // dont forget the sort descriptor or it wont work!
+    
+    self.resultsController = [[NSFetchedResultsController alloc] initWithFetchRequest:messagesRequest managedObjectContext:self.store.managedObjectContext sectionNameKeyPath:nil cacheName:nil];
+    
+    self.resultsController.delegate = self;
+}
+
 #pragma mark - NSFetchedResultsControllerDelegate (boilerplate)
 
-/*
+
 - (void)controllerWillChangeContent:(NSFetchedResultsController *)controller {
     [self.tableView beginUpdates];
 }
@@ -120,6 +136,6 @@
 - (void)controllerDidChangeContent:(NSFetchedResultsController *)controller {
     [self.tableView endUpdates];
 }
-*/
 
+ 
 @end
